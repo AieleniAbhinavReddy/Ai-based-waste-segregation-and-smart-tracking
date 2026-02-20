@@ -1,12 +1,13 @@
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 import requests
+import os
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, origins="*")
 
-ROBOFLOW_API_KEY = "17jd8ELonR9vdIKc6rQB"
-ROBOFLOW_MODEL = "waste-classifier-louut/1"
+ROBOFLOW_API_KEY = os.environ.get("ROBOFLOW_API_KEY", "17jd8ELonR9vdIKc6rQB")
+ROBOFLOW_MODEL = os.environ.get("ROBOFLOW_MODEL", "waste-classifier-louut/1")
 
 ROBOFLOW_URL = f"https://serverless.roboflow.com/{ROBOFLOW_MODEL}?api_key={ROBOFLOW_API_KEY}"
 
@@ -50,4 +51,5 @@ def predict():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 5001))
+    app.run(host="0.0.0.0", port=port, debug=False)

@@ -19,13 +19,15 @@ const WASTE_CLASS_INFO: any = {
   trash: { category: "non-recyclable", tips: ["Dispose safely"], disposalMethod: "Landfill" }
 };
 
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:5001";
+
 export async function classifyWaste(file: File): Promise<ClassificationResult> {
   const t0 = performance.now();
 
   const form = new FormData();
   form.append("image", file);
 
-  const res = await fetch("http://localhost:5001/predict", {
+  const res = await fetch(`${BACKEND_URL}/predict`, {
     method: "POST",
     body: form
   });
