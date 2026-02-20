@@ -1,8 +1,9 @@
-import { defineConfig } from "vite";
+import { defineConfig, Plugin } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
+import { createServer as createApiServer } from "./server";
 
-// https://vitejs.dev/config/
+// Dev-only config that includes Express API server middleware
 export default defineConfig({
   server: {
     host: "::",
@@ -21,6 +22,17 @@ export default defineConfig({
     },
   },
   plugins: [
+    // Mount Express API during dev so /api routes work
+    (() => {
+      const plugin: Plugin = {
+        name: "express-api-dev",
+        configureServer(vite) {
+          const api = createApiServer();
+          vite.middlewares.use(api);
+        },
+      };
+      return plugin;
+    })(),
     react(),
   ],
   resolve: {
