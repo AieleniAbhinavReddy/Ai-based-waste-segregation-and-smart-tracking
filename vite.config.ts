@@ -1,10 +1,9 @@
 import { defineConfig, Plugin } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
-import { createServer as createApiServer } from "./server";
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
+export default defineConfig(({ mode, command }) => ({
   server: {
     host: "::",
     port: 8080,
@@ -22,17 +21,22 @@ export default defineConfig(({ mode }) => ({
     },
   },
   plugins: [
-    // Mount Express API during dev so /api routes work
-    (() => {
-      const plugin: Plugin = {
-        name: "express-api-dev",
-        configureServer(vite) {
-          const api = createApiServer();
-          vite.middlewares.use(api);
-        },
-      };
-      return plugin;
-    })(),
+    // Mount Express API during dev only (not during build)
+    ...(command === "serve"
+      ? [
+          (() => {
+            const plugin: Plugin = {
+              name: "express-api-dev",
+              async configureServer(vite) {
+                const { createServer: createApiServer } = await import("./server");
+                const api = createApiServer();
+                vite.middlewares.use(api);
+              },
+            };
+            return plugin;
+          })(),
+        ]
+      : []),
     react(),
   ],
   resolve: {
