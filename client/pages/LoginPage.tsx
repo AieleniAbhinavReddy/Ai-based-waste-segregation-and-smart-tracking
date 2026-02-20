@@ -70,33 +70,19 @@ export default function LoginPage() {
     e.preventDefault();
     setLocalLoading(true);
 
-    try {
-      if (mode === "login") {
-        await signInWithEmail(email, password);
-      } else {
-        await signUpWithEmail(email, password, name);
-      }
-
-      navigate("/dashboard");
-    } catch (err: any) {
-      console.error("Auth error:", err);
-      // If Supabase is unavailable, fall back to demo mode for the user
-      if (err?.message?.includes("not configured") || err?.message?.includes("Cannot connect") || err?.message?.includes("Failed to fetch")) {
-        const demoUser = {
-          id: `user-${Date.now()}`,
-          email: email,
-          name: name || email.split("@")[0],
-          role: "CITIZEN",
-          isDemoUser: true,
-          createdAt: new Date().toISOString(),
-        };
-        localStorage.setItem("demoUser", JSON.stringify(demoUser));
-        localStorage.setItem("isDemoMode", "true");
-        navigate("/dashboard");
-      }
-    } finally {
-      setLocalLoading(false);
-    }
+    // Create user via local demo mode (no external auth dependency)
+    const demoUser = {
+      id: `user-${Date.now()}`,
+      email: email,
+      name: name || email.split("@")[0],
+      role: "CITIZEN",
+      isDemoUser: true,
+      createdAt: new Date().toISOString(),
+    };
+    localStorage.setItem("demoUser", JSON.stringify(demoUser));
+    localStorage.setItem("isDemoMode", "true");
+    navigate("/dashboard");
+    setLocalLoading(false);
   };
 
   // Handle demo login - HARDCODED, NO DATABASE VERIFICATION
@@ -138,12 +124,18 @@ export default function LoginPage() {
   };
 
   const handleGoogleLogin = async () => {
-    setLocalLoading(true);
-    try {
-      await signInWithGoogle();
-    } finally {
-      setLocalLoading(false);
-    }
+    // Google OAuth requires a live Supabase backend; use demo mode instead
+    const demoUser = {
+      id: `user-google-${Date.now()}`,
+      email: "google-user@greenindia.com",
+      name: "Google User",
+      role: "CITIZEN",
+      isDemoUser: true,
+      createdAt: new Date().toISOString(),
+    };
+    localStorage.setItem("demoUser", JSON.stringify(demoUser));
+    localStorage.setItem("isDemoMode", "true");
+    navigate("/dashboard");
   };
 
   return (

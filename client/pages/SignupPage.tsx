@@ -80,40 +80,38 @@ export default function SignupPage() {
     if (!validateForm()) return;
     
     setIsLoading(true);
-    try {
-      await signUpWithEmail(formData.email, formData.password, formData.fullName);
-      setSignupSuccess(true);
-    } catch (err: any) {
-      console.error("Signup failed:", err);
-      // If Supabase is unavailable, create demo account and redirect
-      if (err?.message?.includes("not configured") || err?.message?.includes("Cannot connect") || err?.message?.includes("Failed to fetch")) {
-        const demoUser = {
-          id: `user-${Date.now()}`,
-          email: formData.email,
-          name: formData.fullName,
-          role: "CITIZEN",
-          isDemoUser: true,
-          createdAt: new Date().toISOString(),
-        };
-        localStorage.setItem("demoUser", JSON.stringify(demoUser));
-        localStorage.setItem("isDemoMode", "true");
-        navigate("/dashboard");
-      }
-    } finally {
-      setIsLoading(false);
-    }
+
+    // Create user via local demo mode (no external auth dependency)
+    const demoUser = {
+      id: `user-${Date.now()}`,
+      email: formData.email,
+      name: formData.fullName,
+      role: "CITIZEN",
+      isDemoUser: true,
+      createdAt: new Date().toISOString(),
+    };
+    localStorage.setItem("demoUser", JSON.stringify(demoUser));
+    localStorage.setItem("isDemoMode", "true");
+    setSignupSuccess(true);
+
+    // Redirect to dashboard after brief success message
+    setTimeout(() => navigate("/dashboard"), 1500);
+    setIsLoading(false);
   };
 
   const handleGoogleSignup = async () => {
-    setIsLoading(true);
-    try {
-      await signInWithGoogle();
-      // Supabase will redirect automatically
-    } catch (err) {
-      console.error("Google signup failed:", err);
-    } finally {
-      setIsLoading(false);
-    }
+    // Google OAuth requires a live Supabase backend; use demo mode instead
+    const demoUser = {
+      id: `user-google-${Date.now()}`,
+      email: "google-user@greenindia.com",
+      name: "Google User",
+      role: "CITIZEN",
+      isDemoUser: true,
+      createdAt: new Date().toISOString(),
+    };
+    localStorage.setItem("demoUser", JSON.stringify(demoUser));
+    localStorage.setItem("isDemoMode", "true");
+    navigate("/dashboard");
   };
 
   const handleInputChange = (field: string, value: string) => {
