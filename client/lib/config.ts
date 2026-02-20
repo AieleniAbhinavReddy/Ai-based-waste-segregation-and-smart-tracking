@@ -67,10 +67,10 @@ export const validateConfig = () => {
 
   // Check Supabase config if Supabase features are enabled
   if (!config.supabase.url) {
-    errors.push("VITE_SUPABASE_URL is required for database functionality");
+    console.warn("VITE_SUPABASE_URL not set. Auth will use demo mode.");
   }
   if (!config.supabase.anonKey) {
-    errors.push("VITE_SUPABASE_ANON_KEY is required for authentication");
+    console.warn("VITE_SUPABASE_ANON_KEY not set. Auth will use demo mode.");
   }
 
   // Check Maps config for location features

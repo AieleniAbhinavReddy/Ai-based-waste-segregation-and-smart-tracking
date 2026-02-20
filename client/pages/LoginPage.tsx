@@ -78,8 +78,22 @@ export default function LoginPage() {
       }
 
       navigate("/dashboard");
-    } catch (err) {
+    } catch (err: any) {
       console.error("Auth error:", err);
+      // If Supabase is unavailable, fall back to demo mode for the user
+      if (err?.message?.includes("not configured") || err?.message?.includes("Cannot connect") || err?.message?.includes("Failed to fetch")) {
+        const demoUser = {
+          id: `user-${Date.now()}`,
+          email: email,
+          name: name || email.split("@")[0],
+          role: "CITIZEN",
+          isDemoUser: true,
+          createdAt: new Date().toISOString(),
+        };
+        localStorage.setItem("demoUser", JSON.stringify(demoUser));
+        localStorage.setItem("isDemoMode", "true");
+        navigate("/dashboard");
+      }
     } finally {
       setLocalLoading(false);
     }

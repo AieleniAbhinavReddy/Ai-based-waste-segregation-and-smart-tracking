@@ -42,11 +42,18 @@ export const useAuth = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!supabase) return;
+    if (!supabase) {
+      // Supabase not configured — stop loading immediately so the app doesn't hang
+      setLoading(false);
+      return;
+    }
 
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
       setUser(data.session?.user ?? null);
+      setLoading(false);
+    }).catch(() => {
+      // Supabase unreachable — continue without auth
       setLoading(false);
     });
 
@@ -62,20 +69,39 @@ export const useAuth = () => {
   /* ---------------- LOGIN ---------------- */
 
   const signInWithEmail = async (email: string, password: string) => {
+    if (!supabase) {
+      const msg = "Supabase is not configured. Use demo login instead.";
+      setError(msg);
+      throw new Error(msg);
+    }
     setError(null);
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    if (error) {
-      setError(error.message);
-      throw error;
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (error) {
+        setError(error.message);
+        throw error;
+      }
+    } catch (err: any) {
+      if (err?.message?.includes("Failed to fetch") || err?.message?.includes("ERR_NAME_NOT_RESOLVED")) {
+        const msg = "Cannot connect to authentication server. Use demo login instead.";
+        setError(msg);
+        throw new Error(msg);
+      }
+      throw err;
     }
   };
 
   /* ---------------- GOOGLE ---------------- */
 
   const signInWithGoogle = async () => {
+    if (!supabase) {
+      const msg = "Supabase is not configured. Use demo login instead.";
+      setError(msg);
+      throw new Error(msg);
+    }
     setError(null);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
@@ -92,39 +118,72 @@ export const useAuth = () => {
   /* ---------------- SIGNUP ---------------- */
 
   const signUp = async (email: string, password: string) => {
+    if (!supabase) {
+      const msg = "Supabase is not configured. Use demo login instead.";
+      setError(msg);
+      throw new Error(msg);
+    }
     setError(null);
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
-    if (error) {
-      setError(error.message);
-      throw error;
+    try {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+      if (error) {
+        setError(error.message);
+        throw error;
+      }
+    } catch (err: any) {
+      if (err?.message?.includes("Failed to fetch") || err?.message?.includes("ERR_NAME_NOT_RESOLVED")) {
+        const msg = "Cannot connect to authentication server. Use demo login instead.";
+        setError(msg);
+        throw new Error(msg);
+      }
+      throw err;
     }
   };
 
   const signUpWithEmail = async (email: string, password: string, name: string) => {
-    setError(null);
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: name,
-        },
-      },
-    });
-    if (error) {
-      setError(error.message);
-      throw error;
+    if (!supabase) {
+      const msg = "Supabase is not configured. Use demo login instead.";
+      setError(msg);
+      throw new Error(msg);
     }
-    return data;
+    setError(null);
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: name,
+          },
+        },
+      });
+      if (error) {
+        setError(error.message);
+        throw error;
+      }
+      return data;
+    } catch (err: any) {
+      if (err?.message?.includes("Failed to fetch") || err?.message?.includes("ERR_NAME_NOT_RESOLVED")) {
+        const msg = "Cannot connect to authentication server. Use demo login instead.";
+        setError(msg);
+        throw new Error(msg);
+      }
+      throw err;
+    }
   };
 
   /* ---------------- LOGOUT ---------------- */
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    if (!supabase) return;
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      // Ignore sign-out errors when Supabase is unreachable
+    }
   };
 
   return {

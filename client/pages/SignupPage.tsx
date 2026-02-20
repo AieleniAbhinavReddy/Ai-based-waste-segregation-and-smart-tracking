@@ -81,14 +81,24 @@ export default function SignupPage() {
     
     setIsLoading(true);
     try {
-      await signUpWithEmail(formData.email, formData.password, {
-        full_name: formData.fullName
-      });
+      await signUpWithEmail(formData.email, formData.password, formData.fullName);
       setSignupSuccess(true);
-      // Note: Supabase will send a confirmation email
-      // User will be redirected after email confirmation
-    } catch (err) {
+    } catch (err: any) {
       console.error("Signup failed:", err);
+      // If Supabase is unavailable, create demo account and redirect
+      if (err?.message?.includes("not configured") || err?.message?.includes("Cannot connect") || err?.message?.includes("Failed to fetch")) {
+        const demoUser = {
+          id: `user-${Date.now()}`,
+          email: formData.email,
+          name: formData.fullName,
+          role: "CITIZEN",
+          isDemoUser: true,
+          createdAt: new Date().toISOString(),
+        };
+        localStorage.setItem("demoUser", JSON.stringify(demoUser));
+        localStorage.setItem("isDemoMode", "true");
+        navigate("/dashboard");
+      }
     } finally {
       setIsLoading(false);
     }
