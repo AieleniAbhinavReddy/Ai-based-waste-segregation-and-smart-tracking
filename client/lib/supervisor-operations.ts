@@ -5,6 +5,12 @@
 
 import { supabase } from "./supabase";
 
+/** Throws if supabase client is not available */
+function requireSupabase() {
+  if (!supabase) throw new Error("Supabase not configured – using demo mode");
+  return supabase;
+}
+
 // ==================== ZONE MONITORING ====================
 
 export interface SupervisorZoneData {
@@ -25,7 +31,7 @@ export interface SupervisorZoneData {
 export const getSupervisorZoneData = async (supervisorId: string): Promise<SupervisorZoneData | null> => {
   try {
     // Get supervisor's zone
-    const { data: supervisorData, error: supervisorError } = await supabase
+    const { data: supervisorData, error: supervisorError } = await requireSupabase()
       .from("supervisors")
       .select("zone_id")
       .eq("user_id", supervisorId)
@@ -36,7 +42,7 @@ export const getSupervisorZoneData = async (supervisorId: string): Promise<Super
     const zoneId = supervisorData.zone_id;
 
     // Get zone data
-    const { data: zoneData, error: zoneError } = await supabase
+    const { data: zoneData, error: zoneError } = await requireSupabase()
       .from("zones")
       .select("*")
       .eq("id", zoneId)
@@ -45,20 +51,20 @@ export const getSupervisorZoneData = async (supervisorId: string): Promise<Super
     if (zoneError) return null;
 
     // Get citizen count
-    const { count: citizenCount } = await supabase
+    const { count: citizenCount } = await requireSupabase()
       .from("citizen_compliance")
       .select("*", { count: "exact" })
       .eq("zone_id", zoneId);
 
     // Get worker count
-    const { count: workerCount } = await supabase
+    const { count: workerCount } = await requireSupabase()
       .from("workers")
       .select("*", { count: "exact" })
       .eq("zone_id", zoneId);
 
     // Get today's pickups
     const today = new Date().toISOString().split('T')[0];
-    const { data: pickupsData } = await supabase
+    const { data: pickupsData } = await requireSupabase()
       .from("pickup_logs")
       .select("*")
       .eq("zone_id", zoneId)
@@ -68,21 +74,21 @@ export const getSupervisorZoneData = async (supervisorId: string): Promise<Super
     const pendingCount = (pickupsData || []).filter(p => p.status === 'scheduled').length;
 
     // Get violations today
-    const { data: violationsData } = await supabase
+    const { data: violationsData } = await requireSupabase()
       .from("violations")
       .select("*")
       .eq("zone_id", zoneId)
       .gte("created_at", today);
 
     // Get active complaints
-    const { count: complaintCount } = await supabase
+    const { count: complaintCount } = await requireSupabase()
       .from("complaints")
       .select("*", { count: "exact" })
       .eq("zone_id", zoneId)
       .eq("status", "open");
 
     // Get zone performance
-    const { data: performanceData } = await supabase
+    const { data: performanceData } = await requireSupabase()
       .from("zone_performance")
       .select("compliance_percentage")
       .eq("zone_id", zoneId)
@@ -131,7 +137,7 @@ export interface WorkerStatus {
 export const getSupervisorWorkers = async (supervisorId: string) => {
   try {
     // Get supervisor's zone
-    const { data: supervisorData, error: supervisorError } = await supabase
+    const { data: supervisorData, error: supervisorError } = await requireSupabase()
       .from("supervisors")
       .select("zone_id")
       .eq("user_id", supervisorId)
@@ -139,7 +145,7 @@ export const getSupervisorWorkers = async (supervisorId: string) => {
 
     if (supervisorError || !supervisorData) return [];
 
-    const { data, error } = await supabase
+    const { data, error } = await requireSupabase()
       .from("workers")
       .select(`
         id,
@@ -169,7 +175,7 @@ export const getWorkerRoute = async (workerId: string) => {
   try {
     const today = new Date().toISOString().split('T')[0];
 
-    const { data, error } = await supabase
+    const { data, error } = await requireSupabase()
       .from("pickup_logs")
       .select(`
         id,
@@ -201,7 +207,7 @@ export const getWorkerPickupHistory = async (workerId: string, days: number = 30
     const dateFrom = new Date();
     dateFrom.setDate(dateFrom.getDate() - days);
 
-    const { data, error } = await supabase
+    const { data, error } = await requireSupabase()
       .from("pickup_logs")
       .select(`
         *,
@@ -233,7 +239,7 @@ export const flagWorkerViolation = async (data: {
   pickup_log_id?: string;
 }) => {
   try {
-    const { data: result, error } = await supabase
+    const { data: result, error } = await requireSupabase()
       .from("violations")
       .insert(data)
       .select()
@@ -273,7 +279,7 @@ export interface PickupToVerify {
 export const getSupervisorPickupsToVerify = async (supervisorId: string) => {
   try {
     // Get supervisor's zone
-    const { data: supervisorData, error: supervisorError } = await supabase
+    const { data: supervisorData, error: supervisorError } = await requireSupabase()
       .from("supervisors")
       .select("zone_id")
       .eq("user_id", supervisorId)
@@ -283,7 +289,7 @@ export const getSupervisorPickupsToVerify = async (supervisorId: string) => {
 
     const today = new Date().toISOString().split('T')[0];
 
-    const { data, error } = await supabase
+    const { data, error } = await requireSupabase()
       .from("pickup_logs")
       .select(`
         *,
@@ -313,7 +319,7 @@ export const checkGPSMismatch = async (
   toleranceMeters: number = 100
 ) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await requireSupabase()
       .from("pickup_logs")
       .select("gps_latitude, gps_longitude")
       .eq("id", pickupLogId)
@@ -366,7 +372,7 @@ export const verifyPickup = async (
       updated_at: new Date().toISOString(),
     };
 
-    const { data: result, error } = await supabase
+    const { data: result, error } = await requireSupabase()
       .from("pickup_logs")
       .update(updateData)
       .eq("id", pickupId)
@@ -401,7 +407,7 @@ export interface ZoneComplaint {
 export const getSupervisorComplaints = async (supervisorId: string) => {
   try {
     // Get supervisor's zone
-    const { data: supervisorData, error: supervisorError } = await supabase
+    const { data: supervisorData, error: supervisorError } = await requireSupabase()
       .from("supervisors")
       .select("zone_id")
       .eq("user_id", supervisorId)
@@ -409,7 +415,7 @@ export const getSupervisorComplaints = async (supervisorId: string) => {
 
     if (supervisorError || !supervisorData) return [];
 
-    const { data, error } = await supabase
+    const { data, error } = await requireSupabase()
       .from("complaints")
       .select(`
         *,
@@ -435,7 +441,7 @@ export const assignComplaintToWorker = async (
   comment: string
 ) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await requireSupabase()
       .from("complaints")
       .update({
         assigned_to_id: workerId,
@@ -461,7 +467,7 @@ export const resolveComplaintAsWorker = async (
   resolutionDetails: string
 ) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await requireSupabase()
       .from("complaints")
       .update({
         status: "resolved",
@@ -505,7 +511,7 @@ export const getDailyPerformanceSummary = async (
     const targetDate = date || new Date().toISOString().split('T')[0];
 
     // Get supervisor's zone
-    const { data: supervisorData, error: supervisorError } = await supabase
+    const { data: supervisorData, error: supervisorError } = await requireSupabase()
       .from("supervisors")
       .select("zone_id")
       .eq("user_id", supervisorId)
@@ -514,7 +520,7 @@ export const getDailyPerformanceSummary = async (
     if (supervisorError || !supervisorData) return null;
 
     // Get pickups for the day
-    const { data: pickupsData } = await supabase
+    const { data: pickupsData } = await requireSupabase()
       .from("pickup_logs")
       .select("*")
       .eq("zone_id", supervisorData.zone_id)
@@ -525,26 +531,26 @@ export const getDailyPerformanceSummary = async (
     const failedPickups = (pickupsData || []).filter(p => p.status === 'failed').length;
 
     // Get active workers
-    const { count: totalWorkers } = await supabase
+    const { count: totalWorkers } = await requireSupabase()
       .from("workers")
       .select("*", { count: "exact" })
       .eq("zone_id", supervisorData.zone_id);
 
-    const { count: activeWorkers } = await supabase
+    const { count: activeWorkers } = await requireSupabase()
       .from("workers")
       .select("*", { count: "exact" })
       .eq("zone_id", supervisorData.zone_id)
       .eq("status", "active");
 
     // Get violations
-    const { data: violationsData } = await supabase
+    const { data: violationsData } = await requireSupabase()
       .from("violations")
       .select("*")
       .eq("zone_id", supervisorData.zone_id)
       .gte("created_at", targetDate);
 
     // Get zone performance
-    const { data: performanceData } = await supabase
+    const { data: performanceData } = await requireSupabase()
       .from("zone_performance")
       .select("compliance_percentage")
       .eq("zone_id", supervisorData.zone_id)
@@ -573,7 +579,7 @@ export const getDailyPerformanceSummary = async (
 export const getWorkerProductivityScore = async (supervisorId: string) => {
   try {
     // Get supervisor's zone
-    const { data: supervisorData, error: supervisorError } = await supabase
+    const { data: supervisorData, error: supervisorError } = await requireSupabase()
       .from("supervisors")
       .select("zone_id")
       .eq("user_id", supervisorId)
@@ -581,7 +587,7 @@ export const getWorkerProductivityScore = async (supervisorId: string) => {
 
     if (supervisorError || !supervisorData) return [];
 
-    const { data, error } = await supabase
+    const { data, error } = await requireSupabase()
       .from("worker_performance")
       .select(`
         *,
@@ -604,7 +610,7 @@ export const getWorkerProductivityScore = async (supervisorId: string) => {
 export const generateWeeklyZoneReport = async (supervisorId: string) => {
   try {
     // Get supervisor's zone
-    const { data: supervisorData, error: supervisorError } = await supabase
+    const { data: supervisorData, error: supervisorError } = await requireSupabase()
       .from("supervisors")
       .select("zone_id")
       .eq("user_id", supervisorId)
@@ -617,20 +623,20 @@ export const generateWeeklyZoneReport = async (supervisorId: string) => {
     weekStart.setHours(0, 0, 0, 0);
 
     // Get week's pickups
-    const { data: pickupsData } = await supabase
+    const { data: pickupsData } = await requireSupabase()
       .from("pickup_logs")
       .select("*")
       .eq("zone_id", supervisorData.zone_id)
       .gte("created_at", weekStart.toISOString());
 
     // Get worker performance
-    const { data: performanceData } = await supabase
+    const { data: performanceData } = await requireSupabase()
       .from("worker_performance")
       .select("*")
       .eq("zone_id", supervisorData.zone_id);
 
     // Get zone performance
-    const { data: zonePerformance } = await supabase
+    const { data: zonePerformance } = await requireSupabase()
       .from("zone_performance")
       .select("*")
       .eq("zone_id", supervisorData.zone_id)
@@ -663,8 +669,17 @@ export const generateWeeklyZoneReport = async (supervisorId: string) => {
  * Check if user is supervisor
  */
 export const checkSupervisorAccess = async (userId: string): Promise<boolean> => {
+  // Demo mode: check localStorage role
+  const demoStr = localStorage.getItem("demoUser");
+  if (demoStr) {
+    try {
+      const demo = JSON.parse(demoStr);
+      if (demo.role === "SUPERVISOR") return true;
+    } catch { /* ignore */ }
+  }
+  if (!supabase) return false;
   try {
-    const { data, error } = await supabase
+    const { data, error } = await requireSupabase()
       .from("user_roles")
       .select("role")
       .eq("user_id", userId)
@@ -684,7 +699,7 @@ export const checkSupervisorAccess = async (userId: string): Promise<boolean> =>
  */
 export const getSupervisorInfo = async (userId: string) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await requireSupabase()
       .from("supervisors")
       .select(`
         *,

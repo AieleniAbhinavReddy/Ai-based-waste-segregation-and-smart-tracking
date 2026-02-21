@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { useAuth, supabase } from "@/lib/supabase";
+import { useAuth } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -22,7 +23,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { AlertTriangle, FileText, MapPin } from "lucide-react";
-import { Variants } from "framer-motion";
+
 interface Report {
   id: string;
   user_id: string;
@@ -36,6 +37,19 @@ interface Report {
   address?: string;
   status: string;
   created_at: string;
+}
+
+const LS_REPORTS = "greenindia_reports";
+function readLocalReports(): Report[] {
+  try { return JSON.parse(localStorage.getItem(LS_REPORTS) || "[]"); } catch { return []; }
+}
+function writeLocalReports(data: Report[]) {
+  localStorage.setItem(LS_REPORTS, JSON.stringify(data));
+}
+function getCurrentUserId(): string | null {
+  const d = localStorage.getItem("demoUser");
+  if (d) try { return JSON.parse(d).id; } catch { /* */ }
+  return null;
 }
 
 export default function ReportIssue() {
@@ -55,25 +69,29 @@ export default function ReportIssue() {
 
   const [reports, setReports] = useState<Report[]>([]);
 
+  const userId = user?.id || getCurrentUserId();
+
   useEffect(() => {
-    if (user) loadReports();
-  }, [user]);
+    if (userId) loadReports();
+  }, [userId]);
 
   const loadReports = async () => {
     try {
-      const { data, error } = await supabase
-        .from("illegal_reports")
-        .select("*")
-        .eq("user_id", user!.id)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      setReports(data || []);
+      if (supabase) {
+        const { data: sess } = await supabase.auth.getSession();
+        if (sess?.session) {
+          const { data, error } = await supabase
+            .from("illegal_reports")
+            .select("*")
+            .eq("user_id", sess.session.user.id)
+            .order("created_at", { ascending: false });
+          if (!error && data) { setReports(data); return; }
+        }
+      }
+      // localStorage fallback
+      setReports(readLocalReports().filter(r => r.user_id === userId));
     } catch {
-      toast({
-        title: "Failed to load reports",
-        variant: "destructive",
-      });
+      setReports(readLocalReports().filter(r => r.user_id === userId));
     }
   };
 
@@ -90,56 +108,77 @@ export default function ReportIssue() {
   const handleSubmit = async (e:any) => {
   e.preventDefault();
   setError(null);
-
-  const { data: sessionData } = await supabase.auth.getSession();
-  if (!sessionData.session) {
-    return setError("Supabase session missing. Please re-login.");
-  }
-
-  if (!user) return setError("Please login first");
+  if (!userId) return setError("Please login first");
   if (!desc.trim()) return setError("Description required");
-  if (!photo) return setError("Photo required");
 
   setSubmitting(true);
 
   try {
-    const uid = user.id;
+    // Try Supabase if available and session exists
+    if (supabase) {
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (sessionData?.session) {
+        const uid = sessionData.session.user.id;
+        let photoUrl: string | null = null;
 
-    const path = `${uid}/${Date.now()}_${photo.name}`;
+        if (photo) {
+          const path = `${uid}/${Date.now()}_${photo.name}`;
+          const { data: up, error: upErr } = await supabase.storage
+            .from("Reports")
+            .upload(path, photo);
+          if (!upErr && up) {
+            const { data: pub } = supabase.storage
+              .from("Reports")
+              .getPublicUrl(up.path);
+            photoUrl = pub.publicUrl;
+          }
+        }
 
-    const { data: up, error: upErr } = await supabase.storage
-      .from("Reports")
-      .upload(path, photo);
+        const { error: insertErr } = await supabase
+          .from("illegal_reports")
+          .insert({
+            user_id: uid,
+            title: title || null,
+            description: desc,
+            category,
+            severity,
+            photo_url: photoUrl,
+            latitude: loc.lat || null,
+            longitude: loc.lng || null,
+            address: address || null,
+            status: "new",
+          });
 
-    if (upErr) throw upErr;
+        if (!insertErr) {
+          toast({ title: "Report submitted successfully" });
+          setDone(true);
+          await loadReports();
+          return;
+        }
+      }
+    }
 
-    const { data: pub } = supabase.storage
-      .from("Reports")
-      .getPublicUrl(up.path);
-
-    const photoUrl = pub.publicUrl;
-
-    const { error } = await supabase
-      .from("illegal_reports")
-      .insert({
-        user_id: uid,
-        title: title || null,
-        description: desc,
-        category,
-        severity,
-        photo_url: photoUrl,
-        latitude: loc.lat || null,
-        longitude: loc.lng || null,
-        address: address || null,
-        status: "new",
-      })
-      .select();   // <-- IMPORTANT for RLS debugging
-
-    if (error) throw error;
-
+    // Fallback: store locally
+    const report: Report = {
+      id: `local-${Date.now()}`,
+      user_id: userId!,
+      title: title || undefined,
+      description: desc,
+      category,
+      severity,
+      photo_url: photo ? URL.createObjectURL(photo) : undefined,
+      latitude: loc.lat,
+      longitude: loc.lng,
+      address: address || undefined,
+      status: "new",
+      created_at: new Date().toISOString(),
+    };
+    const list = readLocalReports();
+    list.unshift(report);
+    writeLocalReports(list);
     toast({ title: "Report submitted successfully" });
     setDone(true);
-    await loadReports();
+    setReports(list.filter(r => r.user_id === userId));
   } catch (err:any) {
     setError(err.message);
   } finally {

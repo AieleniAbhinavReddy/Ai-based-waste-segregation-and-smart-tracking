@@ -9,8 +9,19 @@ export type Listing = {
   condition: string;
   price: number;
   images: string[];
+  is_active?: boolean;
   created_at: string;
 };
+
+const LS_LISTINGS = "greenindia_marketplace_listings";
+const LS_ORDERS = "greenindia_marketplace_orders";
+
+function readLS<T>(key: string): T[] {
+  try { return JSON.parse(localStorage.getItem(key) || "[]"); } catch { return []; }
+}
+function writeLS<T>(key: string, data: T[]) {
+  localStorage.setItem(key, JSON.stringify(data));
+}
 
 export async function createListing(data: {
   user_id: string;
@@ -21,6 +32,25 @@ export async function createListing(data: {
   price: number;
   images: string[];
 }) {
+  if (!supabase) {
+    const item: Listing = {
+      id: `local-${Date.now()}`,
+      seller_id: data.user_id,
+      title: data.title,
+      description: data.description,
+      category: data.category,
+      condition: data.condition,
+      price: data.price,
+      images: data.images,
+      is_active: true,
+      created_at: new Date().toISOString(),
+    };
+    const list = readLS<Listing>(LS_LISTINGS);
+    list.unshift(item);
+    writeLS(LS_LISTINGS, list);
+    return item;
+  }
+
   const { data: res, error } = await supabase
     .from("marketplace_listings")
     .insert([
@@ -43,6 +73,10 @@ export async function createListing(data: {
 }
 
 export async function listListings() {
+  if (!supabase) {
+    return readLS<Listing>(LS_LISTINGS).filter((l) => l.is_active !== false);
+  }
+
   const { data, error } = await supabase
     .from("marketplace_listings")
     .select("*")
@@ -54,6 +88,10 @@ export async function listListings() {
 }
 
 export async function getListing(id: string) {
+  if (!supabase) {
+    return readLS<Listing>(LS_LISTINGS).find((l) => l.id === id) || null;
+  }
+
   const { data, error } = await supabase
     .from("marketplace_listings")
     .select("*")
@@ -70,6 +108,14 @@ export async function createOrder(data: {
   seller_id: string;
   price: number;
 }) {
+  if (!supabase) {
+    const order = { id: `local-${Date.now()}`, ...data, status: "pending", created_at: new Date().toISOString() };
+    const list = readLS<any>(LS_ORDERS);
+    list.unshift(order);
+    writeLS(LS_ORDERS, list);
+    return order;
+  }
+
   const { data: res, error } = await supabase
     .from("marketplace_orders")
     .insert([
@@ -94,6 +140,11 @@ export async function createOffer(data: {
   amount: number;
   message?: string;
 }) {
+  if (!supabase) {
+    const offer = { id: `local-${Date.now()}`, ...data, status: "pending", created_at: new Date().toISOString() };
+    return offer;
+  }
+
   const { data: res, error } = await supabase
     .from("marketplace_offers")
     .insert([

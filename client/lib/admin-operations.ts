@@ -5,6 +5,12 @@
 
 import { supabase } from "./supabase";
 
+/** Throws if supabase client is not available */
+function requireSupabase() {
+  if (!supabase) throw new Error("Supabase not configured – using demo mode");
+  return supabase;
+}
+
 // ==================== USER MANAGEMENT ====================
 
 export interface AdminUser {
@@ -51,7 +57,7 @@ export const getAllUsers = async (filters?: {
   zone_id?: string;
 }) => {
   try {
-    let query = supabase
+    let query = requireSupabase()
       .from("user_profiles")
       .select(`
         id,
@@ -80,7 +86,7 @@ export const getAllUsers = async (filters?: {
 // Get all citizens
 export const getAllCitizens = async () => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await requireSupabase()
       .from("user_profiles")
       .select(`
         id,
@@ -104,7 +110,7 @@ export const getAllCitizens = async () => {
 // Get all workers
 export const getAllWorkers = async () => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await requireSupabase()
       .from("workers")
       .select(`
         id,
@@ -133,7 +139,7 @@ export const getAllWorkers = async () => {
 // Get all supervisors
 export const getAllSupervisors = async () => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await requireSupabase()
       .from("supervisors")
       .select(`
         id,
@@ -167,7 +173,7 @@ export const createNewUser = async (userData: {
 }) => {
   try {
     // Create auth user
-    const { data: authData, error: authError } = await supabase.auth.signUp({
+    const { data: authData, error: authError } = await requireSupabase().auth.signUp({
       email: userData.email,
       password: userData.password,
     });
@@ -176,7 +182,7 @@ export const createNewUser = async (userData: {
     if (!authData.user?.id) throw new Error("Failed to create user");
 
     // Create profile
-    const { error: profileError } = await supabase
+    const { error: profileError } = await requireSupabase()
       .from("user_profiles")
       .insert({
         id: authData.user.id,
@@ -187,7 +193,7 @@ export const createNewUser = async (userData: {
     if (profileError) throw profileError;
 
     // Create role entry
-    const { error: roleError } = await supabase
+    const { error: roleError } = await requireSupabase()
       .from("user_roles")
       .insert({
         user_id: authData.user.id,
@@ -199,7 +205,7 @@ export const createNewUser = async (userData: {
 
     // Create role-specific information
     if (userData.role === "worker" && userData.zone_id) {
-      const { error: workerError } = await supabase
+      const { error: workerError } = await requireSupabase()
         .from("workers")
         .insert({
           user_id: authData.user.id,
@@ -211,7 +217,7 @@ export const createNewUser = async (userData: {
 
       if (workerError) throw workerError;
     } else if (userData.role === "supervisor" && userData.zone_id) {
-      const { error: supervisorError } = await supabase
+      const { error: supervisorError } = await requireSupabase()
         .from("supervisors")
         .insert({
           user_id: authData.user.id,
@@ -236,7 +242,7 @@ export const updateUserRole = async (userId: string, updates: {
   status?: 'active' | 'inactive' | 'suspended';
 }) => {
   try {
-    const { error } = await supabase
+    const { error } = await requireSupabase()
       .from("user_roles")
       .update(updates)
       .eq("user_id", userId);
@@ -252,7 +258,7 @@ export const updateUserRole = async (userId: string, updates: {
 // Delete user (soft delete - set status to inactive)
 export const deactivateUser = async (userId: string) => {
   try {
-    const { error } = await supabase
+    const { error } = await requireSupabase()
       .from("user_roles")
       .update({ status: "inactive" })
       .eq("user_id", userId);
@@ -283,7 +289,7 @@ export interface Zone {
 // Get all zones
 export const getAllZones = async () => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await requireSupabase()
       .from("zones")
       .select(`
         *,
@@ -303,7 +309,7 @@ export const getAllZones = async () => {
 // Get zone details with workers and performance
 export const getZoneDetails = async (zoneId: string) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await requireSupabase()
       .from("zones")
       .select(`
         *,
@@ -334,7 +340,7 @@ export const createZone = async (zoneData: {
   supervisor_id: string;
 }) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await requireSupabase()
       .from("zones")
       .insert(zoneData)
       .select()
@@ -351,7 +357,7 @@ export const createZone = async (zoneData: {
 // Update zone
 export const updateZone = async (zoneId: string, updates: Partial<Zone>) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await requireSupabase()
       .from("zones")
       .update(updates)
       .eq("id", zoneId)
@@ -369,7 +375,7 @@ export const updateZone = async (zoneId: string, updates: Partial<Zone>) => {
 // Assign supervisor to zone
 export const assignSupervisorToZone = async (zoneId: string, supervisorId: string) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await requireSupabase()
       .from("zones")
       .update({ supervisor_id: supervisorId })
       .eq("id", zoneId)
@@ -392,25 +398,25 @@ export const getPickupStats = async () => {
     const monthStart = new Date(new Date().setDate(1)).toISOString().split('T')[0];
 
     // Today's pickups
-    const { data: todayData, error: todayError } = await supabase
+    const { data: todayData, error: todayError } = await requireSupabase()
       .from("pickup_logs")
       .select("*")
       .gte("created_at", today);
 
     // This month's pickups
-    const { data: monthData, error: monthError } = await supabase
+    const { data: monthData, error: monthError } = await requireSupabase()
       .from("pickup_logs")
       .select("*")
       .gte("created_at", monthStart);
 
     // Failed pickups
-    const { data: failedData } = await supabase
+    const { data: failedData } = await requireSupabase()
       .from("pickup_logs")
       .select("*")
       .eq("status", "failed");
 
     // QR verification success rate
-    const { data: qrData } = await supabase
+    const { data: qrData } = await requireSupabase()
       .from("pickup_logs")
       .select("*")
       .eq("qr_verified", true);
@@ -438,7 +444,7 @@ export const getPickupLogs = async (filters?: {
   date?: string;
 }) => {
   try {
-    let query = supabase
+    let query = requireSupabase()
       .from("pickup_logs")
       .select(`
         *,
@@ -466,7 +472,7 @@ export const getPickupLogs = async (filters?: {
 
 export const getViolationsCount = async () => {
   try {
-    const { count, error } = await supabase
+    const { count, error } = await requireSupabase()
       .from("violations")
       .select("*", { count: "exact" })
       .eq("resolved", false);
@@ -486,7 +492,7 @@ export const getAllViolations = async (filters?: {
   resolved?: boolean;
 }) => {
   try {
-    let query = supabase
+    let query = requireSupabase()
       .from("violations")
       .select(`
         *,
@@ -513,7 +519,7 @@ export const getAllViolations = async (filters?: {
 // Resolve a violation
 export const resolveViolation = async (violationId: string) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await requireSupabase()
       .from("violations")
       .update({
         resolved: true,
@@ -551,7 +557,7 @@ export const getAllComplaints = async (filters?: {
   priority?: string;
 }) => {
   try {
-    let query = supabase
+    let query = requireSupabase()
       .from("complaints")
       .select(`
         *,
@@ -577,7 +583,7 @@ export const getAllComplaints = async (filters?: {
 // Assign complaint to supervisor
 export const assignComplaint = async (complaintId: string, supervisorId: string) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await requireSupabase()
       .from("complaints")
       .update({
         assigned_to_id: supervisorId,
@@ -598,7 +604,7 @@ export const assignComplaint = async (complaintId: string, supervisorId: string)
 // Resolve complaint
 export const resolveComplaint = async (complaintId: string, resolution: string) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await requireSupabase()
       .from("complaints")
       .update({
         status: "resolved",
@@ -621,7 +627,7 @@ export const resolveComplaint = async (complaintId: string, resolution: string) 
 
 export const getWorkerPerformance = async (workerId?: string) => {
   try {
-    let query = supabase
+    let query = requireSupabase()
       .from("worker_performance")
       .select(`
         *,
@@ -646,7 +652,7 @@ export const getWorkerPerformance = async (workerId?: string) => {
 // Get zone performance
 export const getZonePerformance = async (zoneId?: string) => {
   try {
-    let query = supabase
+    let query = requireSupabase()
       .from("zone_performance")
       .select(`
         *,
@@ -684,7 +690,7 @@ export const generateZoneWasteReport = async (zoneId: string, period: 'daily' | 
         break;
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await requireSupabase()
       .from("pickup_logs")
       .select("*")
       .eq("zone_id", zoneId)
@@ -716,7 +722,7 @@ export const getCitizenCompliance = async (filters?: {
   compliance_rank?: string;
 }) => {
   try {
-    let query = supabase
+    let query = requireSupabase()
       .from("citizen_compliance")
       .select(`
         *,
@@ -743,7 +749,7 @@ export const getCitizenCompliance = async (filters?: {
 
 export const getPaymentStats = async (zoneId?: string) => {
   try {
-    let query = supabase
+    let query = requireSupabase()
       .from("payments")
       .select("*");
 
@@ -772,8 +778,17 @@ export const getPaymentStats = async (zoneId?: string) => {
 // ==================== HELPER FUNCTIONS ====================
 
 export const checkAdminAccess = async (userId: string): Promise<boolean> => {
+  // Demo mode: check localStorage role
+  const demoStr = localStorage.getItem("demoUser");
+  if (demoStr) {
+    try {
+      const demo = JSON.parse(demoStr);
+      if (demo.role === "ADMIN") return true;
+    } catch { /* ignore */ }
+  }
+  if (!supabase) return false;
   try {
-    const { data, error } = await supabase
+    const { data, error } = await requireSupabase()
       .from("user_roles")
       .select("role")
       .eq("user_id", userId)

@@ -29,6 +29,15 @@ const PRICES: Record<MaterialType, number> = {
   other: 5,
 };
 
+const LS_BUYBACK = "greenindia_buyback_orders";
+
+function readLS(): BuybackOrder[] {
+  try { return JSON.parse(localStorage.getItem(LS_BUYBACK) || "[]"); } catch { return []; }
+}
+function writeLS(data: BuybackOrder[]) {
+  localStorage.setItem(LS_BUYBACK, JSON.stringify(data));
+}
+
 export function getPriceQuote(material: MaterialType, weight: number) {
   return Math.round(PRICES[material] * weight);
 }
@@ -43,10 +52,26 @@ export function getUnitPrice(material: string) {
   }
 }
 
-
-export async function createBuybackOrder(order) {
+export async function createBuybackOrder(order: any) {
   const unitPrice = getUnitPrice(order.material_type);
   const total = unitPrice * order.weight_kg;
+
+  if (!supabase) {
+    const item: BuybackOrder = {
+      id: `local-${Date.now()}`,
+      user_id: order.user_id,
+      material_type: order.material_type,
+      weight_kg: order.weight_kg,
+      unit_price: unitPrice,
+      total_amount: total,
+      status: "quote",
+      created_at: new Date().toISOString(),
+    };
+    const list = readLS();
+    list.unshift(item);
+    writeLS(list);
+    return item;
+  }
 
   const { data, error } = await supabase
     .from("buyback_orders")
@@ -56,7 +81,7 @@ export async function createBuybackOrder(order) {
       weight_kg: order.weight_kg,
       unit_price: unitPrice,
       total_amount: total,
-      status: "quote",        // ✅ MUST match constraint
+      status: "quote",
       payment_received: false
     })
     .select()
@@ -66,8 +91,11 @@ export async function createBuybackOrder(order) {
   return data;
 }
 
-
 export async function listBuybackOrders(userId: string) {
+  if (!supabase) {
+    return readLS().filter((o) => o.user_id === userId);
+  }
+
   const { data, error } = await supabase
     .from("buyback_orders")
     .select("*")

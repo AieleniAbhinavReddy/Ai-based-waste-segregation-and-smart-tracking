@@ -80,38 +80,55 @@ export default function SignupPage() {
     if (!validateForm()) return;
     
     setIsLoading(true);
-
-    // Create user via local demo mode (no external auth dependency)
-    const demoUser = {
-      id: `user-${Date.now()}`,
-      email: formData.email,
-      name: formData.fullName,
-      role: "CITIZEN",
-      isDemoUser: true,
-      createdAt: new Date().toISOString(),
-    };
-    localStorage.setItem("demoUser", JSON.stringify(demoUser));
-    localStorage.setItem("isDemoMode", "true");
-    setSignupSuccess(true);
-
-    // Redirect to dashboard after brief success message
-    setTimeout(() => navigate("/dashboard"), 1500);
-    setIsLoading(false);
+    try {
+      await signUpWithEmail(formData.email, formData.password, formData.fullName);
+      setSignupSuccess(true);
+      setTimeout(() => navigate("/dashboard"), 1500);
+    } catch (err: any) {
+      console.error("Signup failed:", err);
+      // Fall back to demo mode
+      if (
+        err?.message?.includes("not configured") ||
+        err?.message?.includes("Cannot connect") ||
+        err?.message?.includes("Failed to fetch")
+      ) {
+        const demoUser = {
+          id: `user-${Date.now()}`,
+          email: formData.email,
+          name: formData.fullName,
+          role: "CITIZEN",
+          isDemoUser: true,
+          createdAt: new Date().toISOString(),
+        };
+        localStorage.setItem("demoUser", JSON.stringify(demoUser));
+        localStorage.setItem("isDemoMode", "true");
+        setSignupSuccess(true);
+        setTimeout(() => navigate("/dashboard"), 1500);
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleGoogleSignup = async () => {
-    // Google OAuth requires a live Supabase backend; use demo mode instead
-    const demoUser = {
-      id: `user-google-${Date.now()}`,
-      email: "google-user@greenindia.com",
-      name: "Google User",
-      role: "CITIZEN",
-      isDemoUser: true,
-      createdAt: new Date().toISOString(),
-    };
-    localStorage.setItem("demoUser", JSON.stringify(demoUser));
-    localStorage.setItem("isDemoMode", "true");
-    navigate("/dashboard");
+    setIsLoading(true);
+    try {
+      await signInWithGoogle();
+    } catch {
+      const demoUser = {
+        id: `user-google-${Date.now()}`,
+        email: "google-user@greenindia.com",
+        name: "Google User",
+        role: "CITIZEN",
+        isDemoUser: true,
+        createdAt: new Date().toISOString(),
+      };
+      localStorage.setItem("demoUser", JSON.stringify(demoUser));
+      localStorage.setItem("isDemoMode", "true");
+      navigate("/dashboard");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleInputChange = (field: string, value: string) => {

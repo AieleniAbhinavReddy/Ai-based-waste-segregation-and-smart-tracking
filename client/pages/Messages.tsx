@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { MessageCircle, Send, Bot, User, Clock, Loader2 } from "lucide-react";
+import { getAIReply } from "@/lib/ai-chat";
 
 interface ChatMessage {
   id: string;
@@ -43,22 +44,12 @@ export default function MessagesPage() {
     scrollBottom();
 
     try {
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userMessage.body }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to get response");
-      }
-
-      const data = await response.json();
+      const reply = await getAIReply(userMessage.body);
 
       const botMessage: ChatMessage = {
         id: crypto.randomUUID(),
         sender: "bot",
-        body: data.reply || "Sorry, I couldn't process your message.",
+        body: reply || "Sorry, I couldn't process your message.",
         timestamp: new Date(),
       };
 
