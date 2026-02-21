@@ -27,23 +27,31 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 
+function getDemoUserId(): string | null {
+  try {
+    const d = localStorage.getItem("demoUser");
+    if (d) return JSON.parse(d).id || null;
+  } catch {}
+  return null;
+}
+
 export default function PickupsPage() {
   const { user } = useAuth();
   const [pickups, setPickups] = useState<Pickup[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
+  const userId = user?.id || getDemoUserId();
+
   useEffect(() => {
-    if (user) {
-      loadPickups();
-    }
-  }, [user]);
+    loadPickups();
+  }, [userId]);
 
   const loadPickups = async () => {
     try {
       setLoading(true);
-      const userId = user?.id || 'mock-user-1';
-      const data = await listUserPickups(userId);
+      const uid = userId || 'demo-user';
+      const data = await listUserPickups(uid);
       setPickups(data || []);
     } catch (error) {
       console.error('Failed to load pickups:', error);
